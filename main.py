@@ -125,7 +125,7 @@ def ask(user_id=None, conversation_id=None, message_id=None):
                 WHERE conversation_id = ? 
                 AND user_id = ?
                 AND id < ?
-                ORDER BY id DESC LIMIT 5
+                ORDER BY id DESC LIMIT 10
             """,
             (conversation_id, user_id, message_id),
         )
@@ -148,7 +148,7 @@ def ask(user_id=None, conversation_id=None, message_id=None):
     def generate():
         data = request.json
         full_response = ""
-        llm = OpenAI(temperature=0.2, model="gpt-3.5-turbo")
+        llm = OpenAI(temperature=0.2, model="gpt-4o")
         chat_engine = SimpleChatEngine.from_defaults(
             llm=llm, system_prompt=comenio_personality
         )
