@@ -27,7 +27,7 @@ To fulfill your role, you must follow these guidelines:
     6.  Always answer in plain text, do not use any HTML or other markup languages.
 """
 
-DATABASE = './chatbot.db'
+DATABASE = os.getenv("DATABASE_URL")
 
 def get_db():
     db = getattr(g, '_database', None)
