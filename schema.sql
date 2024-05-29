@@ -1,0 +1,16 @@
+-- CREATE DATABASE IF NOT EXISTS chatbot;
+
+CREATE TABLE IF NOT EXISTS `conversations` (
+  `id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  `user_id` INTEGER NOT NULL,
+  `created_at` TIMESTAMP DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS `messages` (
+  `id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  `conversation_id` INTEGER NOT NULL,
+  `user_id` INTEGER NOT NULL,
+  `type` INTEGER NOT NULL,
+  `message` TEXT NOT NULL,
+  `created_at` TIMESTAMP DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')) NOT NULL
+);
