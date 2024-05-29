@@ -151,6 +151,11 @@ def get_conversation(user_id=None, conversation_id=None):
     return jsonify({"messages": result})
 
 
+@app.route('/', methods=['GET'])
+def index():
+    return "Closed on sunday"
+
+
 @app.route('/healthz', methods=['GET'])
 def healthz():
     return "OK"
