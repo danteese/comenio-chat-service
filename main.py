@@ -151,6 +151,12 @@ def get_conversation(user_id=None, conversation_id=None):
     return jsonify({"messages": result})
 
 
+@app.route('/healthz', methods=['GET'])
+def healthz():
+    return "OK"
+
+
+
 @app.teardown_appcontext
 def close_connection(exception):
     db = getattr(g, '_database', None)
