@@ -4,8 +4,12 @@ from flask import Flask, request, jsonify, make_response, g, stream_with_context
 from flask_cors import CORS
 from llama_index.llms.openai import OpenAI
 from llama_index.core.chat_engine import SimpleChatEngine
+from dotenv import load_dotenv
 
-os.environ['OPENAI_API_KEY'] = "sk-proj-3jgUNHz3FORpCfCZPqIRT3BlbkFJmNDg8hP8PPdStdo7kLGh"
+load_dotenv()
+
+os.environ['OPENAI_API_KEY'] = os.getenv("OPENAI_API_KEY")
+print(os.getenv("OPENAI_API_KEY"))
 
 app = Flask(__name__)
 CORS(app)
