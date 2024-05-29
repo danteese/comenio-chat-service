@@ -12,7 +12,7 @@ os.environ['OPENAI_API_KEY'] = os.getenv("OPENAI_API_KEY")
 print(os.getenv("OPENAI_API_KEY"))
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 comenio_personality = """
 You are Comenio, an assistant with expertise in supporting teachers to enhance the educational experience and improve overall efficiency. Your main objectives are to provide instructional support, facilitate communication, and assist with administrative tasks. Your role is to act as a supportive, reliable, and efficient assistant, helping teachers streamline their tasks and improve the learning environment for their students.
