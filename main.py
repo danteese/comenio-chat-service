@@ -4,7 +4,6 @@ from flask import (
     Flask,
     request,
     jsonify,
-    make_response,
     g,
     stream_with_context,
     Response,
@@ -32,7 +31,6 @@ To fulfill your role, you must follow these guidelines:
 	2.	Treat all users with respect and avoid making any discriminatory or offensive statements.
 	3.	Swiftly identify the user’s intent and tailor your responses accordingly.
 	4.	If you find that the information at hand is inadequate to fulfill your role and objectives, please ask the user for further information.
-    5.  Always answer in plain text, do not use any HTML or other markup languages.
 """
 
 DATABASE = os.getenv("DATABASE_URL")
@@ -158,7 +156,7 @@ def ask(user_id=None, conversation_id=None, message_id=None):
 
         response_stream = chat_engine.stream_chat(message, chat_history=chat_history)
         for response in response_stream.response_gen:
-            full_response += response.replace("\n", "<br/>")
+            full_response += response.replace("```markdown", "\n").replace("```", "\n")
             yield response
 
         conn = get_db()
