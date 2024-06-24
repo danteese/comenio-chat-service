@@ -1,235 +1,76 @@
 import os
-import sqlite3
 from flask import (
     Flask,
-    request,
     jsonify,
     g,
-    stream_with_context,
-    Response,
 )
 from flask_cors import CORS
-from llama_index.llms.openai import OpenAI
-from llama_index.core.chat_engine import SimpleChatEngine
-from llama_index.core.llms import ChatMessage, MessageRole
 from dotenv import load_dotenv
+from chatbot.controllers.conversations import ConversationController, ConversationListController, ConversationMessageController
+from chatbot.controllers.users import UserController
+from chatbot.controllers.chatbot import ChatbotPreflightController, ChatbotController
 
 load_dotenv()
 
 os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY")
-print(os.getenv("OPENAI_API_KEY"))
 
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
-
-comenio_personality = """
-You are Comenio, an assistant with expertise in supporting teachers to enhance the educational experience and improve overall efficiency. Your main objectives are to provide instructional support, facilitate communication, and assist with administrative tasks. Your role is to act as a supportive, reliable, and efficient assistant, helping teachers streamline their tasks and improve the learning environment for their students.
-
-To fulfill your role, you must follow these guidelines:
-
-	1.	Answer the user in the language the user writes to you.
-	2.	Treat all users with respect and avoid making any discriminatory or offensive statements.
-	3.	Swiftly identify the user’s intent and tailor your responses accordingly.
-	4.	If you find that the information at hand is inadequate to fulfill your role and objectives, please ask the user for further information.
-"""
-
-DATABASE = os.getenv("DATABASE_URL")
-
-
-def get_db():
-    db = getattr(g, "_database", None)
-    if db is None:
-        db = g._database = sqlite3.connect(DATABASE)
-    return db
-
-
-def is_user_valid():
-    pass  # TODO: Validate token with main service or query database :S
-
-
-def is_conversation_valid(conversation_id) -> bool:
-    """
-    Check if the conversation exists in the database
-    @param conversation_id: The conversation ID to check
-    @return: True if the conversation exists, False otherwise
-    """
-    cursor = get_db().cursor()
-    cursor.execute("SELECT * FROM conversations WHERE id = ?", (conversation_id,))
-    conversations = cursor.fetchone()
-    return conversations is not None
-
-
-@app.route("/api/chat/<int:user_id>/<int:conversation_id>/preflight", methods=["POST"])
-def preflight(user_id=None, conversation_id=None):
-    if user_id is None or conversation_id is None:
-        return {"error": "User ID is required"}, 400
-
-    # TODO: Implement user validation
-    if not is_conversation_valid(conversation_id):
-        return {"error": "Invalid conversation ID"}, 400
-
-    print(request.json["message"])
-
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO messages(conversation_id, user_id, type, message) VALUES(?,?,?,?)",
-        (conversation_id, user_id, 1, request.json["message"]),
-    )
-    conn.commit()
-    human_message = cursor.lastrowid
-    cursor.execute(
-        "INSERT INTO messages(conversation_id, user_id, type, message) VALUES(?,?,?,?)",
-        (conversation_id, user_id, 2, ""),
-    )
-    conn.commit()
-    ai_message = cursor.lastrowid
-
-    cursor.execute(
-        """SELECT id, conversation_id, message, type, DATETIME(created_at,'localtime') as created_at 
-                   FROM messages WHERE id IN (?,?) ORDER BY created_at ASC""",
-        (human_message, ai_message),
-    )
-    messages = cursor.fetchall()
-    column_names = list(map(lambda x: x[0], cursor.description))
-    result = [dict(zip(column_names, row)) for row in messages]
-    return jsonify({"messages": result})
-
-
-@app.route(
-    "/api/chat/<int:user_id>/<int:conversation_id>/<int:message_id>/query",
-    methods=["POST"],
-)
-def ask(user_id=None, conversation_id=None, message_id=None):
-    if user_id is None or conversation_id is None:
-        return {"error": "User ID is required"}, 400
-
-    if not request.json:
-        return {"error": "Request body is required"}, 400
-
-    # TODO: Implement user validation
-    if not is_conversation_valid(conversation_id):
-        return {"error": "Invalid conversation ID"}, 400
-
-    def retrieve_last_two_messages_as_chat_message(
-        conversation_id, user_id, message_id
-    ):
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-                SELECT id, conversation_id, message, type, DATETIME(created_at,'localtime') as created_at 
-                FROM messages 
-                WHERE conversation_id = ? 
-                AND user_id = ?
-                AND id < ?
-                ORDER BY id DESC LIMIT 10
-            """,
-            (conversation_id, user_id, message_id),
-        )
-        messages = cursor.fetchall()
-        if messages is None:
-            return []
-        
-        chat_history = []
-        for message in messages:
-            print(message[2], MessageRole.USER if message[3] == 1 else MessageRole.ASSISTANT)
-            chat_history.append(
-                ChatMessage(
-                    content=message[2],
-                    role=MessageRole.USER if message[3] == 1 else MessageRole.ASSISTANT,
-                )
-            )
-        return chat_history
-
-    @stream_with_context
-    def generate():
-        data = request.json
-        full_response = ""
-        llm = OpenAI(temperature=0.2, model="gpt-4o")
-        chat_engine = SimpleChatEngine.from_defaults(
-            llm=llm, system_prompt=comenio_personality
-        )
-        message = data["message"] if "message" in data else ""
-
-        chat_history = retrieve_last_two_messages_as_chat_message(conversation_id, user_id, message_id)
-
-        response_stream = chat_engine.stream_chat(message, chat_history=chat_history)
-        for response in response_stream.response_gen:
-            full_response += response.replace("```markdown", "\n").replace("```", "\n")
-            yield response
-
-        conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute(
-            "UPDATE messages SET message = ? WHERE id = ?",
-            (
-                full_response,
-                message_id,
-            ),
-        )
-        conn.commit()
-        print(full_response)
-
-    return Response(
-        generate(),
-        mimetype="text/event-stream",
-        content_type="charset=UTF-8",
-        headers={"X-Accel-Buffering": "no"},
-    )
-    # return chat_engine.chat(data["message"]).response
-
-
-@app.route("/api/chat/<int:user_id>", methods=["GET"])
-def get_chat(user_id=None):
-    cursor = get_db().cursor()
-    cursor.execute(
-        "SELECT id, DATETIME(created_at,'localtime') as created_at FROM conversations WHERE user_id = ? ORDER BY created_at DESC",
-        (user_id,),
-    )
-    conversations = cursor.fetchall()
-    column_names = list(map(lambda x: x[0], cursor.description))
-    result = [dict(zip(column_names, row)) for row in conversations]
-    return jsonify({"conversations": result})
-
-
-@app.route("/api/chat/<int:user_id>", methods=["POST"])
-def post_chat(user_id=None):
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO conversations(user_id) VALUES(?)", (user_id,))
-    conn.commit()
-    print(cursor.lastrowid)
-    return jsonify({"conversation": cursor.lastrowid})
-
-
-@app.route("/api/chat/<int:user_id>/<int:conversation_id>/messages", methods=["GET"])
-def get_conversation(user_id=None, conversation_id=None):
-    # TODO: Implement user validation
-    if not is_conversation_valid(conversation_id):
-        return {"error": "Invalid conversation ID"}, 400
-
-    cursor = get_db().cursor()
-    cursor.execute(
-        "SELECT id, conversation_id, message, type, DATETIME(created_at,'localtime') as created_at FROM messages WHERE conversation_id = ? and user_id = ? ORDER BY created_at ASC",
-        (conversation_id, user_id),
-    )
-    messages = cursor.fetchall()
-    column_names = list(map(lambda x: x[0], cursor.description))
-    result = [dict(zip(column_names, row)) for row in messages]
-    print(messages)
-    return jsonify({"messages": result})
-
 
 @app.route("/", methods=["GET"])
 def index():
     return "Closed on sunday"
 
-
 @app.route("/healthz", methods=["GET"])
 def healthz():
     return "OK"
 
+
+@app.errorhandler(403)
+def forbidden(error):
+    print(error)
+    return jsonify({"status": False, "message": str(error)}), 403
+
+
+@app.errorhandler(404)
+def not_found(error):
+    print(error)
+    return jsonify({"status": False, "message": str(error)}), 404
+
+# Routes
+app.add_url_rule(
+    "/api/chat",
+    view_func=ConversationListController.as_view("conversation_list"),
+    methods=["GET", "POST"],
+)
+app.add_url_rule(
+    "/api/chat/<conversation_uuid>",
+    view_func=ConversationController.as_view("conversation"),
+    methods=["GET"],
+)
+app.add_url_rule(
+    "/api/chat/<conversation_uuid>/messages",
+    view_func=ConversationMessageController.as_view("conversation_message"),
+    methods=["GET"],
+)
+
+app.add_url_rule(
+    "/api/chat/<conversation_uuid>/preflight",
+    view_func=ChatbotPreflightController.as_view("chatbot_preflight"),
+    methods=["POST"],
+)
+
+app.add_url_rule(
+    "/api/chat/<conversation_uuid>/<int:message_id>/query",
+    view_func=ChatbotController.as_view("chatbot_query"),
+    methods=["POST"],
+)
+
+app.add_url_rule(
+    "/api/user/<int:user_id>",
+    view_func=UserController.as_view("user"),
+    methods=["GET"],
+)
 
 @app.teardown_appcontext
 def close_connection(exception):
