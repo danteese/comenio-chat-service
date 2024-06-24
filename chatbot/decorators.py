@@ -35,4 +35,6 @@ def api_key_required(f):
         if token != API_KEY:
             abort(403, description="Invalid API key")
 
+        return f(*args, **kwargs)
+
     return authorization_api_key

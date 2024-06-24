@@ -18,6 +18,4 @@ class UserController(MethodView):
             return {"status": False, "message": "Invalid API Key"}, 403
 
         message_count = get_user_messages_count(user_id)
-        return jsonify(
-            {"status": True, "message_count": message_count, "monthly_limit": MESSAGE_LIMIT}
-        )
+        return jsonify({"status": True, "message_count": message_count, "monthly_limit": MESSAGE_LIMIT})
