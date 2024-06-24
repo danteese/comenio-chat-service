@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX conversations_uuid_index ON conversations(uuid);
