@@ -1,13 +1,17 @@
 import requests
 import os
 import jwt
-from flask import request
+from flask import request, abort
 from .database import get_db
 
 
 def verify_jwt(token):
     """
     Verify the JWT token and return the payload
+
+    :param token: The JWT token to verify
+    :return: The payload of the JWT token
+    :raises: 403 if the token is invalid
     """
 
     try:
@@ -23,19 +27,22 @@ def verify_jwt(token):
         return payload
     except jwt.ExpiredSignatureError as e:
         print(str(e))
-        return None
+        abort(403, description="Invalid Token") 
     except jwt.InvalidSignatureError as e:
         print(str(e))
-        return None
+        abort(403, description="Invalid Token(2)") 
     except jwt.InvalidTokenError as e:
         print(str(e))
-        return None
+        abort(403, description="Invalid Token(3)")
 
 
 def get_user_has_subscription(token):
     """
     Check if the user has a subscription
     either to school or stripe
+
+    :param token: The JWT token
+    :return: True if the user has a subscription, False otherwise
     """
     r = requests.post(
         os.getenv("COMENIO_API_URL") + "/api/user",
@@ -60,6 +67,9 @@ def get_user_has_subscription(token):
 def get_user_messages_count(user_id) -> int:
     """
     Get the number of messages sent by the AI in the current month
+
+    :param user_id: The user ID
+    :return: The number of messages sent by the AI in the current month
     """
     conn = get_db()
     cursor = conn.cursor()
