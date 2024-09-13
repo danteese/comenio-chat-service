@@ -14,3 +14,5 @@ To fulfill your role, you must follow these guidelines:
 MESSAGE_LIMIT = int(os.getenv("MESSAGE_LIMIT", 5))
 
 API_KEY = os.getenv("API_KEY")
+
+BASE_MODEL = os.getenv("BASE_MODEL", "gpt-4o-mini-2024-07-18")

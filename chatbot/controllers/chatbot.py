@@ -3,7 +3,7 @@ from flask import jsonify, request, g, abort, stream_with_context, Response
 from ..authorization import get_user_has_subscription, get_user_messages_count
 from ..decorators import authorization_required
 from ..database import get_db, is_conversation_valid
-from ..constants import MESSAGE_LIMIT, comenio_personality
+from ..constants import MESSAGE_LIMIT, comenio_personality, BASE_MODEL
 from llama_index.llms.openai import OpenAI
 from llama_index.core.chat_engine import SimpleChatEngine
 from llama_index.core.llms import ChatMessage, MessageRole
@@ -111,7 +111,7 @@ class ChatbotController(MethodView):
         def generate():
             data = request.json
             full_response = ""
-            llm = OpenAI(temperature=0.2, model="gpt-4o")
+            llm = OpenAI(temperature=0.2, model=BASE_MODEL)
             chat_engine = SimpleChatEngine.from_defaults(
                 llm=llm, system_prompt=comenio_personality
             )
